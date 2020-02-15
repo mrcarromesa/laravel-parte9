@@ -11,64 +11,12 @@
 |
 */
 
-use App\Http\Models\Devs;
+/*
+o primeiro parametro de resource 'dev' precisa ser o mesmo
+que o primeiro parametro de 'parameters()'
+e o segundo parametro de parameters, preferenciamente poderá ser 'id'
+*/
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::post('devs', function () {
-    $json = request()->json()->all();
-    $devs = Devs::create($json);
-    $devs->save();
-
-    return $devs;
-});
-
-Route::get('devs', function () {
-    $devs = Devs::all();
-    return $devs;
-});
-
-Route::put('devs/{id}', function ($id) {
-
-    // obtendo os dados enviados via metodo PUT
-    $json = request()->only(['nome', 'github_username']);
-
-    // buscar os dados na tabela pelo id enviado
-    $devs = Devs::find($id);
-
-    // verifica se o registro com o id informado acima existe
-    if (!$devs) {
-        // caso não exista RETORNA um erro 404
-        return response()->json(['error' => 'Not found'], 404);
-    }
-    // caso exista...
-
-    // realiza o update do registro
-    $devs->update($json);
-    $devs->save();
-
-    // retorna o registro alterado
-    return response()->json($devs);
-    //return $devs;
-});
-
-Route::delete('devs/{id}', function ($id) {
-
-    // buscar os dados na tabela pelo id enviado
-    $devs = Devs::find($id);
-
-    // verifica se o registro com o id informado acima existe
-    if (!$devs) {
-        // caso não exista RETORNA um erro 404
-        return response()->json(['error' => 'Not found'], 404);
-    }
-    // caso exista...
-
-    // realiza o delete
-    $devs->delete();
-
-    // Retorna uma mensagem
-    return response()->json(['ok' => 'Registro removido']);
-});
+Route::resource('dev', 'DevController')->parameters([
+    'dev' => 'id'
+]);
