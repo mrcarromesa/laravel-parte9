@@ -12,6 +12,18 @@ class Devs extends Model
 
     protected $guarded = []; // Permitir que todos os campos sejam preenchidos
 
+    public function techs()
+    {
+        // Parametros:
+        // 1 - Classe do outro model principal, nao o intermediario e sim o principal
+        // 2 - nome da tabela intermediaria
+        // 3 - id correspondente na tabela intermediaria foreingkey do presente model nesse caso do Devs
+        // 4 - id correspondente na tabela intermediaria foreingkey do outro model princiapl no caso do Techs
+
+        return $this->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')->withPivot('status', 'id');
+    }
+
+
     public function posts()
     {
         // 1 - Path\Model\Tabela_Filha
