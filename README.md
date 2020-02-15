@@ -1,5 +1,11 @@
 <h1>Laravel parte 1</h1>
 
+- Criar projeto laravel, executar o comando:
+
+```bash
+laravel new devs
+```
+
 - Criar base de dados
 - Alterar arquivo ```.env``` configurando os dados de acesso a base de dados.
 
