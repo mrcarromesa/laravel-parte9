@@ -1,0 +1,128 @@
+<h1>Laravel parte 1</h1>
+
+- Criar base de dados
+- Alterar arquivo ```.env``` configurando os dados de acesso a base de dados.
+- Criar migration:
+
+```bash
+php artisan make:migration create_devs_table --create=devs
+```
+
+- Abrir arquivo criado em ```database/migrations/```
+
+- Na function ```up()``` alterar o conteudo para:
+
+```php
+    Schema::create('devs', function (Blueprint $table) {
+        $table->bigIncrements('id');
+        $table->string('nome');
+        $table->string('github_username');
+        $table->timestamps();
+    });
+```
+
+** Talvez seja necessário realizar um ajuste no arquivo ```app/Providers/AppServiceProvider.php``` para evitar problema com a quantidade de carateres gerados pela função string, na base MySQL, 5.8 ou menor. **
+
+- Nesse caso no arquivo ```app/Providers/AppServiceProvider.php``` adicionar a use:
+
+```php
+use Illuminate\Support\Facades\Schema;
+```
+
+- Na função ```boot()``` desse mesmo arquivo adicionar o seguinte:
+
+```php
+    Schema::defaultStringLength(191);
+```
+
+- Agora sim podemos executar a migration utilizando o comando:
+
+```bash
+php artisan migrate
+```
+
+- A tabela deverá ser criada no banco de dados.
+
+---
+
+<h2>Model</h2>
+
+<p>Passos para criar o Model</p>
+
+- Executar o comando:
+
+```bash
+php artisan make:model Http\\Models\\Devs 
+```
+
+- Será criado o arquivo ```app/Http/Models/Devs.php```
+
+- Adicionar o conteúdo dentro da class Devs:
+
+```php
+protected $table = 'devs'; //Nome da tabela na base
+
+protected $primaryKey = 'id'; //Campo primary key da tabela
+
+protected $guarded = []; // Permitir que todos os campos sejam preenchidos
+```
+
+- No arquivo ```routes/web.php``` adicionar a use:
+
+```php
+use App\Http\Models\Devs;
+```
+
+- Adicionar ainda no arquivo routes:
+
+```php
+Route::post('devs', function () {
+    $json = request()->json()->all();
+    $devs = Devs::create($json);
+    $devs->save();
+
+    return $devs;
+});
+```
+
+- No arquivo ```app/Http/Middleware/VerifyCsrfToken.php``` alterar:
+
+```php
+    protected $except = [
+        //
+    ];
+```
+
+- para:
+
+```php
+    protected $except = [
+        '*',
+    ];
+```
+
+
+- Executar o comando:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: POST;
+- Url: http://localhost:8000/devs
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "nome": "Meu Nome",
+    "github_username": "meu_github_username"
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá inserir o registro.
+
