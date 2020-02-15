@@ -24,3 +24,7 @@ Route::resource('dev', 'DevController')->parameters([
 Route::resource('post', 'PostController')->parameters([
     'post' => 'id'
 ]);
+
+Route::resource('dev-post', 'DevPostController')->parameters([
+    'post' => 'id'
+]);

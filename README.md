@@ -1,16 +1,16 @@
-<h1>Laravel parte 4</h1>
+<h1>Laravel parte 5</h1>
 
 <strong>Referências:</strong>
 
 - [Migration](https://laravel.com/docs/6.x/migrations)
 - [Model](https://laravel.com/docs/6.x/eloquent#defining-models)
-- [Controllers](https://laravel.com/docs/6.x/controllers)
-- [Validation](https://laravel.com/docs/6.x/validation)
 
-- Criar Nova Migration Para criação da tabela ```posts```:
+<strong>Importante: antes de continuar verifique se as tabelas estão com a engine definida como InnoDB, caso contrário altere. E certifique-se de que o conteúdo das tabelas devs e posts estejam vazias.</strong>
+
+- Criar Nova Migration Para alteração da tabela ```posts```:
 
 ```bash
-php artisan make:migration create_posts_table --create=posts
+php artisan make:migration add_dev_id_to_posts_table --table=posts
 ```
 
 - Isso irá criar mais um arquivo dentro de ```database/migrations```
@@ -18,13 +18,27 @@ php artisan make:migration create_posts_table --create=posts
 - Abra e edite esse arquivo, vamos alterar a função ```up()``` desse arquivo:
 
 ```php
-Schema::create('posts', function (Blueprint $table) {
-    $table->bigIncrements('id');
-    $table->string('titulo');
-    $table->text('descricao');
-    $table->timestamps();
+Schema::table('posts', function (Blueprint $table) {
+    $table->unsignedBigInteger('dev_id')->after('id');
+
+    //1 - nome da coluna; EX.: dev_id
+    //2 - nome do relacionamento (Opcional); EX.: devs_id_posts
+    //3 - o campo de referencia na tabela Pai; EX.: id
+    //4 - o nome da tabela; Ex.: devs
+    $table->foreign('dev_id', 'devs_id_posts')->references('id')->on('devs');
 });
 ```
+
+- Vamos alterar o conteudo da function ```down()``` para o caso de um eventual rollback:
+
+````php
+Schema::table('posts', function (Blueprint $table) {
+    // remove relacionamento
+    $table->dropForeign('devs_id_posts');
+    // remove coluna
+    $table->dropColumn('dev_id');
+});
+````
 
 - Execute a migration:
 
@@ -32,119 +46,66 @@ Schema::create('posts', function (Blueprint $table) {
 php artisan migrate
 ```
 
-- Será criada a tabela ```posts``` na base de dados
+- Será alterada a tabela ```posts``` na base de dados, adicionando o campo ```dev_id```
 
 ---
 
-<h2>Criando o Model</h2>
+<h2>Alterando o Model Devs</h2>
 
-- Execute o comando para criar o model:
-
-```bash
-php artisan make:model Http\\Models\\Posts
-```
-
-- Irá criar um arquivo em ```app/Http/Models/Posts```, vamos edita-lo adicionando o seguinte dentro da class:
+- No Model ```Devs``` adicione a seguinte function:
 
 ```php
-protected $table = 'posts';
-protected $primaryKey = 'id';
-protected $guarded = [];
+public function posts()
+{
+    // 1 - Path\Model\Tabela_Filha
+    // 2 - Nome do campo de referencia na tabela filha
+    // 3 - Nome do campo de referencia na tabela pai
+    return $this->hasMany('App\Http\Models\Posts', 'dev_id', 'id');
+}
 ```
+
+- Isso indicará que a tabela devs poderá possuir 1 ou mais registro da tabela posts
 
 ---
 
-<h2>Criando o Controller</h2>
+<h2>Alterando o Model Posts</h2>
 
-- Execute o comando para criar o controller:
-
-```bash
-php artisan make:controller PostController --resource
-```
-
-- Será criado o arquivo ```app/Http/Controllers/PostController```, vamos implementar algumas funções;
-
-- Inicialmente adicione a seguinte ```use``` ao arquivo:
+- No Model ```Posts``` adicione a seguinte function:
 
 ```php
-use App\Http\Models\Posts;
+public function devs()
+{
+    // 1 - Path\Model\Tabela_Pai
+    // 2 - Nome do campo de referencia na tabela atual
+    return $this->belongsTo('App\Http\Models\Devs', 'dev_id');
+}
 ```
 
-- No metodo ```index()``` adicione o seguinte:
+- Isso indicará que a tabela posts poderá pertencer a 1 ou mais registros da tabela devs.
 
-```php
-$post = Posts::all();
-return $post;
-```
+---
 
-- No metodo ```store()``` adicione o seguinte:
+<h2>Ajustando o controller PostController</h2>
 
-```php
-$json = $request->json()->all();
-$post = Posts::create($json);
-$post->save();
-return $post;
-```
+- Na function ```update()``` altere o seguinte:
 
-- No metodo ```update()``` adicione o seguinte:
+- De:
 
 ```php
 $json = $request->only(['titulo', 'descricao']);
-
-$post = Posts::find($id);
-
-if (!$post) {
-    return response()->json(['error' => 'Not found'], 404);
-}
-
-$post->update($json);
-$post->save();
-
-return $post;
 ```
 
-- Finalmente no metodo ```destroy()``` adicione o seguinte:
+- Para:
 
 ```php
-$post = Posts::find($id);
-
-if (!$post) {
-    return response()->json(['error' => 'Not Found'], 404);
-}
-
-$post->delete();
-
-return response()->json(['ok' => 'Registro removido']);
+$json = $request->only(['titulo', 'descricao', 'dev_id']);
 ```
 
 ---
 
-<h2>Validação</h2>
+<h2>Ajustando a validação ValidarPost</h2>
 
-- Executar o comando:
-
-```bash
-php artisan make:request ValidarPost
-```
-
-- Será criado o arquivo em ```app/Http/Requests/ValidarPost```
-
-- Vamos realizar as modificações necessárias:
-
-- Adicionar as ```use```:
-
-```php
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
-```
-
-- Alterar o return da function ```authorize()``` para:
-
-```php
-return true;
-```
-
-- Na function ```rules()``` alterar o conteudo para o seguinte:
+- altere o conteudo da function ```rules()``` para o seguinte:
 
 ```php
 // Para criação de um novo registro todos os campos devem ser validados
@@ -152,6 +113,7 @@ if ($this->isMethod('POST')) {
     return [
         'titulo' => 'required|max:191',
         'descricao' => 'required',
+        'dev_id' => 'required|integer|exists:devs,id' // o exists valida se a referencia exite na tabela devs campo id
     ];
 }
 
@@ -166,76 +128,170 @@ if ($this->has('titulo')) {
     $validacao = ['titulo' => 'required|max:191'];
 }
 
+if ($this->has('dev_id')) {
+    $validacao = ['dev_id' => 'required|integer|exists:devs,id'];
+}
+
 return $validacao;
 ```
 
-- Adicionar a seguinte function para personalizar as mensagens:
+- Alterar o conteudo da function ```messages()``` para o seguinte:
 
 ```php
-public function messages()
-{
-    return [
-        'titulo.required' => 'Campo obrigatório',
-        'titulo.max' => 'O campo deverá conter no máximo :max',
-        'descricao.required' => 'Campo obrigatório',
-    ];
-}
+return [
+    'titulo.required' => 'Campo obrigatório',
+    'titulo.max' => 'O campo deverá conter no máximo :max',
+    'descricao.required' => 'Campo obrigatório',
+    'dev_id.required' => 'Campo obrigatório',
+    'dev_id.integer' => 'O valor deve ser numerico',
+    'dev_id.exists' => 'Referência não encontrada',
+];
 ```
 
-- Por fim adincionar a seguinte função para retornar os erros de validação via JSON:
+- A regra ```exists``` valida se a referencia exite na tabela devs campo id!!
 
-```php
-protected function failedValidation(Validator $validator)
-{
-    throw new HttpResponseException(response()
-        ->json($validator->errors(), 400));
-}
-```
+- Agora no Postman, na rota ```http://localhost:8000/post``` no metodo ```POST``` o campo ```dev_id``` deve ser informado e a referência deverá existir na tabela devs campo ```ìd```
 
 ---
-<h2>Ajustar Controller</h2>
 
-- No arquivo ```PostController``` add ```use```:
+<h2>Alterando no POSTMAN</h2>
 
-```php
-use App\Http\Requests\ValidarPost;
-```
+- primeiro insira um dev na tabela ```devs```, pode utilizar a rota que foi criado para isso no postman.
 
-- Ajustar function ```public function store(Request $request)``` para ```public function store(ValidarPost $request)```
 
-- Ajustar function ```public function update(Request $request, $id)``` para ```public function update(ValidarPost $request, $id)```
-
----
-<h2>Criar Rota</h2>
-
-- No arquivo ```routes/web.php``` adicionar a seguinte rota:
-
-```php
-Route::resource('post', 'PostController')->parameters([
-    'post' => 'id'
-]);
-```
----
-
-<h2>Criar testes com o Postman</h2>
-
-- **Verifique se o servidor está rodando, do contrário execute:
-
-```bash
-php artisan serve
-```
-
-- No [Postman](https://www.postman.com/) criar a rota
+- No Postman alterar a rota
 
 - Metodo: POST;
+
 - Url: http://localhost:8000/post
+
 - Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+
 - No campo de texto adiconar:
 
 ```js
 {
     "titulo": "Meu titulo1",
-    "descricao": "minha descricao"
+    "descricao": "minha descricao",
+    "dev_id": "1"
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá inserir o registro.
+
+<strong>Importante o valor do campo dev_id, deve existir na tabela devs campo id</strong>
+
+---
+
+<h2>Criar Post juntamente com Devs</h2>
+
+- Vamos criar um controller para realizar isso, execute o seguinte comando:
+
+```bash
+php artisan make:controller DevPostController --resource
+```
+
+- Será criado o arquivo ```DevPostController```
+
+- Adicione a ```use```:
+
+```php
+use App\Http\Models\Devs;
+```
+
+- Lista de devs com o seus posts:
+
+- Na function ```index()``` adicione o seguinte:
+
+```php
+// dentro do with estamos utilizando o nome da função que foi criada no Model Devs, a qual retorna os posts relacionados a cada dev que será consultado
+$dev = Devs::select()->with(['posts'])->get();
+return $dev;
+```
+
+- Na function ```store()``` adicione o seguinte:
+
+```php
+// Separa o que irá compor o valor do dev
+$json = $request->only(['github_username', 'nome']);
+// Separa o que irá compor o valor do post
+$json_post = $request->only(['post']);
+
+// insere registro na tabela dev
+$dev = Devs::create($json);
+
+// insere registro na tabela post com o dev_id criado pelo comando acima.
+$dev->posts()->create($json_post['post']);
+
+$dev->save();
+
+return $dev;
+```
+
+- Na function ```update()``` adicione o seguinte:
+
+```php
+$json = $request->only(['nome', 'github_username']);
+$json_post = $request->only(['post']);
+
+$dev = Devs::find($id);
+
+if (!$dev) {
+    return response()->json(['error' => 'Not Found'], 404);
+}
+
+$dev->posts()->create($json_post['post']);
+
+$dev->update($json);
+$dev->save();
+
+return $dev;
+```
+
+- Na function ```destroy()``` adicione o seguinte:
+
+```php
+$dev = Devs::find($id);
+
+if (!$dev) {
+    return response()->json(['error' => 'Not Found'], 404);
+}
+
+$dev->posts()->delete();
+
+$dev->delete();
+
+return response()->json(['ok' => 'Registro removido']);
+```
+
+---
+<h2>Criar Rota</h2>
+
+- No arquivo ```routes/web.php``` criar a rota:
+
+```php
+Route::resource('dev-post', 'DevPostController')->parameters([
+    'post' => 'id'
+]);
+```
+---
+
+<h2>Testando</h2>
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: POST;
+- Url: http://localhost:8000/dev-post
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "nome": "Meu Nome",
+    "github_username": "meu_github_username1",
+    "post": {"titulo": "teste", "descricao": "teste descricao"}
 }
 ```
 
@@ -248,25 +304,26 @@ php artisan serve
 - No [Postman](https://www.postman.com/) criar a rota
 
 - Metodo: GET;
-- Url: http://localhost:8000/post
+- Url: http://localhost:8000/dev-post
 
 - Clicar no botão SEND.
 
-- E será retornado os registros da tabela
+- E retornará os registros.
 
 ---
 
 - No [Postman](https://www.postman.com/) criar a rota
 
 - Metodo: PUT;
-- Url: http://localhost:8000/post/1
+- Url: http://localhost:8000/dev-post/1
 - Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
 - No campo de texto adiconar:
 
 ```js
 {
-    "titulo": "Meu titulo1 alterado",
-    "descricao": "minha descricao alterado"
+    "nome": "Meu Nome",
+    "github_username": "meu_github_username1",
+    "post": {"titulo": "teste", "descricao": "teste descricao"}
 }
 ```
 
@@ -274,15 +331,17 @@ php artisan serve
 
 - E na base de dados deverá alterar o registro.
 
+- e inserir os posts
+
 ---
 
 - No [Postman](https://www.postman.com/) criar a rota
 
 - Metodo: DELETE;
-- Url: http://localhost:8000/post/1
+- Url: http://localhost:8000/dev-post/1
 
 - Clicar no botão SEND.
 
-- E na base de dados deverá reover o registro.
+- E na base de dados deverá remover os registros de devs e posts.
 
 ---

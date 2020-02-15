@@ -30,6 +30,7 @@ class ValidarPost extends FormRequest
             return [
                 'titulo' => 'required|max:191',
                 'descricao' => 'required',
+                'dev_id' => 'required|integer|exists:devs,id' // o exists valida se a referencia exite na tabela devs campo id
             ];
         }
 
@@ -44,6 +45,10 @@ class ValidarPost extends FormRequest
             $validacao = ['titulo' => 'required|max:191'];
         }
 
+        if ($this->has('dev_id')) {
+            $validacao = ['dev_id' => 'required|integer|exists:devs,id'];
+        }
+
         return $validacao;
     }
 
@@ -53,6 +58,9 @@ class ValidarPost extends FormRequest
             'titulo.required' => 'Campo obrigatório',
             'titulo.max' => 'O campo deverá conter no máximo :max',
             'descricao.required' => 'Campo obrigatório',
+            'dev_id.required' => 'Campo obrigatório',
+            'dev_id.integer' => 'O valor deve ser numerico',
+            'dev_id.exists' => 'Referência não encontrada',
         ];
     }
 
