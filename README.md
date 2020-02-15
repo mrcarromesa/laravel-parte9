@@ -2,6 +2,9 @@
 
 - Criar base de dados
 - Alterar arquivo ```.env``` configurando os dados de acesso a base de dados.
+
+** Tenha certeza que os comandos estão sendo executados na pasta do projeto, onde tem o arquivo ```artisan```
+
 - Criar migration:
 
 ```bash
