@@ -156,3 +156,145 @@ php artisan make:migration add_column_to_devs_table --table=devs
 - Como executar rollback da migration:
 [Rolling Back Migrations](https://laravel.com/docs/6.x/migrations#rolling-back-migrations)
 
+---
+
+<h2>Obter todos os registro da tabela</h2>
+
+- No arquivo ```routes/web.php``` adicionar o seguinte:
+
+```php
+Route::get('devs', function () {
+    $devs = Devs::all();
+    return $devs;
+});
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: GET;
+- Url: http://localhost:8000/devs
+
+- Clicar em SEND, deverá exibir todos os devs cadastrados.
+
+---
+
+<h2>Definir campos que devem ser ocultos</h2>
+
+- Declarar direto no Model: [Hiding Attributes From JSON](https://laravel.com/docs/6.x/eloquent-serialization#hiding-attributes-from-json)
+
+- Ex.: 
+
+```php
+protected $hidden = ['coluna'];
+```
+
+- Ou antes de retornar os dados: [makeHidden](https://laravel.com/docs/6.x/eloquent-collections#method-makeHidden)
+
+- Ex.:
+
+```php
+$user->makeHidden('attribute');
+```
+
+---
+<h2>Definir campos que devem ser visiveis</h2>
+
+- Declarar direto no Model: [Hiding Attributes From JSON](https://laravel.com/docs/6.x/eloquent-serialization#hiding-attributes-from-json)
+
+- Ex.:
+
+```php
+protected $visible = ['coluna1', 'coluna2'];
+``` 
+- Ou antes de retornar os dados: [makeVisible](https://laravel.com/docs/6.x/eloquent-collections#method-makeVisible)
+
+- Ex.: 
+
+```php
+$user->makeVisible('attribute');
+```
+---
+
+<h2>Update</h2>
+
+- No arquivo ```routes/web.php``` criar a rota:
+
+```php
+Route::put('devs/{id}', function ($id) {
+
+    // obtendo os dados enviados via metodo PUT
+    $json = request()->only(['nome', 'github_username']);
+
+    // o only obtem campos especificos de uma requisição
+
+    // buscar os dados na tabela pelo id enviado
+    $devs = Devs::find($id);
+
+    // verifica se o registro com o id informado acima existe
+    if (!$devs) {
+        // caso não exista RETORNA um erro 404
+        return response()->json(['error' => 'Not found'], 404);
+    }
+    // caso exista...
+
+    // realiza o update do registro
+    $devs->update($json);
+    $devs->save();
+
+    // retorna o registro alterado
+    return response()->json($devs);
+    //return $devs;
+});
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: PUT;
+- Url: http://localhost:8000/devs/1
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "nome": "Meu Nome alterado",
+    "github_username": "meu_github_username_alterado"
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá alterar o registro.
+
+---
+
+<h2>Delete</h2>
+
+- No arquivo ```routes/web.php``` adicionar o seguinte:
+
+```php
+Route::delete('devs/{id}', function ($id) {
+
+    // buscar os dados na tabela pelo id enviado
+    $devs = Devs::find($id);
+
+    // verifica se o registro com o id informado acima existe
+    if (!$devs) {
+        // caso não exista RETORNA um erro 404
+        return response()->json(['error' => 'Not found'], 404);
+    }
+    // caso exista...
+
+    // realiza o delete
+    $devs->delete();
+
+    // Retorna uma mensagem
+    return response()->json(['ok' => 'Registro removido']);
+});
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: DELETE;
+- Url: http://localhost:8000/devs/1
+- clicar no botão SEND;
+- O registro deverá ser removido da tabela
