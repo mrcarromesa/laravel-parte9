@@ -273,7 +273,7 @@ return response()->json(['ok' => 'Registro removido']);
 
 ```php
 Route::resource('dev-post', 'DevPostController')->parameters([
-    'post' => 'id'
+    'dev-post' => 'id'
 ]);
 ```
 ---
