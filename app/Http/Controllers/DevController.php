@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Models\Devs;
+use App\Http\Requests\ValidarDev;
 use Illuminate\Http\Request;
 
 class DevController extends Controller
@@ -34,7 +35,7 @@ class DevController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(ValidarDev $request)
     {
         // obtem os dados enviados via post
         $json = $request->json()->all();
@@ -76,7 +77,7 @@ class DevController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(ValidarDev $request, $id)
     {
         // obtendo os dados enviados via metodo PUT
         $json = $request->only(['nome', 'github_username']);

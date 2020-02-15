@@ -1,124 +1,125 @@
-<h1>Laravel parte 2</h1>
+<h1>Laravel parte 3</h1>
 
 <strong>Referências:</strong>
 
-- [Controllers](https://laravel.com/docs/6.x/controllers)
+- [Validation](https://laravel.com/docs/6.x/validation)
 
-- Criar Controller, executar o seguinte comando:
+- Criar Form Request Validation, executar o seguinte comando:
 
 ```bash
-php artisan make:controller DevController --resource
+php artisan make:request ValidarDev
 ```
 
-- Isso irá criar o arquivo ```app/Http/Controllers/DevController```
+- Isso irá criar o arquivo ```app/Http/Requests/ValidarDev```
 
 ---
 
-<h2>Metodos e funções</h2>
+- Adicionar ```use`` no arquivo:
 
-| Metodo  |  Função  | Quando usar |
-| ------------------- | ------------------- |------------------- |
-|  GET |  ```index()```, ```create()```, ```show()```, ```edit()``` | ```index()```:  Listar/ Consultar registros, ```create()```: Obter formulário para inserir registro, ```show()```: mostrar unico registro, ```edit()```: Obter formulário para editar registro |
-|  POST |  ```store()``` | enviar dados para inserir novo registro |
-|  PUT |  ```update()``` | enviar dados e id para alterar registro |
-|  DELETE |  ```destroy()``` | enviar id para remover registro |
+```php
+use Illuminate\Contracts\Validation\Validator; // para implementar a function: failedValidation() que ao invés de redirecionar retornará uma resposta json
+use Illuminate\Http\Exceptions\HttpResponseException; // para retornar a resposta em json que sera implementada na function faile
+```
+
+- Alterar o return da função ```authorize()``` para:
+
+```php
+/**
+ * Se o método authorize retornar false, uma resposta HTTP com um código de status 403 será retornada automaticamente e o método do controlador não será executado.
+ * Se você planeja ter lógica de autorização em outra parte do seu aplicativo, retorne true no método authorize:
+ * return true;
+ */
+
+return true;
+```
+
+- Adicionar a function ```rules()``` :
+
+```php
+$id = $this->route('id');
+
+return [
+    'github_username' => 'required|unique:devs,github_username,' . $id . '|max:191',
+    'nome' => 'required',
+];
+```
+
+** As chaves do array (```github_username => ...``` e ```nome => ... ```) devem corresponder aos campos que será enviados pela requisição nos metodos POST e PUT **
+
+** Os valores de cada chave correspondem a validação de cada campo:
+
+| Regra | O que significa |
+|-------|-----------------|
+| ```required```| Campo obrigatório, deve ser informado na requisição e não pode ser vazio|
+| ```unique``` | O valor do campo deve ser unico na tabela, essa regra possuí mais parametros:  <br /><b>1 -</b> Nome da tabela; <br /> <b>2 -</b> Nome da coluna na tabela do qual seu valor deverá ser unico; <br /> <b>3 -</b> Exceção, no caso quando alteramos o registro queremos que seja verificado se o valor informado é diferente de todos os outros exceto ao registro que possuí o id que estamos alterando; <br> Mais detalhes na [Documentação do Laravel](https://laravel.com/docs/6.x/validation#rule-unique) |
+| ```max``` | Deve informar o valor máximo permitido para o campo ex.: ```max:191```, irá validar se o campo possuí no máximo essa quantidade de caracteres |
+
+- Outras regras disponíveis em: [Available Validation Rules](https://laravel.com/docs/6.x/validation#available-validation-rules)
+
 
 ---
 
-<h2>Preenchendo metodos</h2>
+<h2>Personalizar as mensagens de erro</h2>
 
-- Antes de iniciar adicionar a ```use```:
+- Adicionar a seguinte função no arquivo ```ValidarDev.php```:
 
 ```php
-use App\Http\Models\Devs;
+public function messages()
+{
+    return [
+        'github_username.unique'
+        => 'username já cadastrado por outro usuário',
+        'github_username.required' => 'Campo obrigatório',
+        'github_username.max' => 'O campo deverá conter no máximo :max',
+        'nome.required' => 'Campo obrigatório',
+    ];
+}
 ```
 
-- No ```index()``` inserir o seguinte: 
+- Como isso funciona?:
+
+- Ele é um array de ```chave => valor```, onde a chave é composta pelo, nome do campo que queremos validar, mais "```.```" e em seguida a regra que receberá a mensagem caso o erro ocorra, estrutura:
 
 ```php
-    // irá retornar todos os registros da base de dados.
-    $devs = Devs::all();
-    return $devs;
+'nome_do_meu_campo.regra' => 'Minha mensagem personalizada',
 ```
 
-- No ```store()``` inserir o seguinte: 
+---
+
+<h2>Mais um ajuste</h2>
+
+- Por padrão o Form Request Validation irá redirecionar para rota que fez a requisição reportando os erros, porém quando trabalhamos com REST API, esse padrão não serve, precisamos alterar o padrão, para isso implementamos a função ```failedValidation``` no nosso arquivo, dessa forma:
 
 ```php
-    // obtem os dados enviados via post
-    $json = $request->json()->all();
-
-    // insere o registro na base
-    $devs = Devs::create($json);
-    $devs->save();
-
-    // retorna o registro
-    return $devs;
-```
-
-- No ```update()``` inserir o seguinte:
-
-```php
-    // obtendo os dados enviados via metodo PUT
-    $json = $request->only(['nome', 'github_username']);
-
-    // buscar os dados na tabela pelo id enviado
-    $devs = Devs::find($id);
-
-    // verifica se o registro com o id informado acima existe
-    if (!$devs) {
-        // caso não exista RETORNA um erro 404
-        return response()->json(['error' => 'Not found'], 404);
-    }
-    // caso exista...
-
-    // realiza o update do registro
-    $devs->update($json);
-    $devs->save();
-
-    // retorna o registro alterado
-    return response()->json($devs);
-    //return $devs;
-```
-
-- No ```delete()``` inserir o seguinte:
-
-```php
-    // buscar os dados na tabela pelo id enviado
-    $devs = Devs::find($id);
-
-    // verifica se o registro com o id informado acima existe
-    if (!$devs) {
-        // caso não exista RETORNA um erro 404
-        return response()->json(['error' => 'Not found'], 404);
-    }
-    // caso exista...
-
-    // realiza o delete
-    $devs->delete();
-
-    // Retorna uma mensagem
-    return response()->json(['ok' => 'Registro removido']);
-```
-
-- Os demais metodos não serão implemetados;
-
-- No arquivo ```routes/web.php``` adicionar a seguinte rota:
-
-```php
+// Não esqueça de adicionar as uses:
 /*
-o primeiro parametro de resource 'dev' precisa ser o mesmo
-que o primeiro parametro de 'parameters()'
-e o segundo parametro de parameters, preferenciamente poderá ser 'id'
+use Illuminate\Contracts\Validation\Validator; // para implementar a function: failedValidation() que ao invés de redirecionar retornará uma resposta json
+use Illuminate\Http\Exceptions\HttpResponseException; // para retornar a resposta em json que sera implementada na function faile
 */
 
-Route::resource('dev', 'DevController')->parameters([
-    'dev' => 'id'
-]);
-
+protected function failedValidation(Validator $validator)
+{
+    // retorna o Json com os erros de validação e resposta de status 400 (Bad request)
+    throw new HttpResponseException(response()
+        ->json($validator->errors(), 400));
+}
 ```
 
-- No postman alterar em todas as rotas de ```devs```, para ```dev```
+- Ok o arquivo ```ValidarDev.php```, está pronto, agora vamos ajustar o controller.
 
-- Ex.: ao invés de ```http://localhost:8000/devs```, alterar para ```http://localhost:8000/dev```
+---
 
-- E testar tudo deverá está funcionando normalmente.
+<h2>Ajuste no controller DevController</h2>
+
+- Adicionar a use:
+```php
+use App\Http\Requests\ValidarDev;
+```
+
+- Ajustar a função ```public function store(Request $request)``` para:
+```public function store(ValidarDev $request)```
+
+- Ajustar a função ```public function update(Request $request, $id)``` para:
+```public function update(ValidarDev $request, $id)```
+
+- Pronto, agora só testar e nossa validação estará funcionando.
