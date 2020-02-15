@@ -141,3 +141,18 @@ php artisan serve
 
 - E na base de dados deverá inserir o registro.
 
+---
+
+<h2>Um pouco mais sobre migrations</h2>
+
+- alterar tabela, adicionar campo, executar comando:
+
+```bash
+php artisan make:migration add_column_to_devs_table --table=devs
+```
+
+- Mais detalhes em [Creating Columns](https://laravel.com/docs/6.x/migrations#creating-columns)
+
+- Como executar rollback da migration:
+[Rolling Back Migrations](https://laravel.com/docs/6.x/migrations#rolling-back-migrations)
+
