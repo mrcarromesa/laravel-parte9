@@ -1,5 +1,11 @@
 <h1>Laravel parte 1</h1>
 
+<strong>Referências:</strong>
+
+- [Route](https://laravel.com/docs/6.x/routing)
+- [Migration](https://laravel.com/docs/6.x/migrations)
+- [Model](https://laravel.com/docs/6.x/eloquent#defining-models)
+
 - Criar projeto laravel, executar o comando:
 
 ```bash
