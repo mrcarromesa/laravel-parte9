@@ -20,3 +20,7 @@ e o segundo parametro de parameters, preferenciamente poderá ser 'id'
 Route::resource('dev', 'DevController')->parameters([
     'dev' => 'id'
 ]);
+
+Route::resource('post', 'PostController')->parameters([
+    'post' => 'id'
+]);

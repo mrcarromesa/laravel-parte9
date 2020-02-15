@@ -1,125 +1,288 @@
-<h1>Laravel parte 3</h1>
+<h1>Laravel parte 4</h1>
 
 <strong>Referências:</strong>
 
+- [Migration](https://laravel.com/docs/6.x/migrations)
+- [Model](https://laravel.com/docs/6.x/eloquent#defining-models)
+- [Controllers](https://laravel.com/docs/6.x/controllers)
 - [Validation](https://laravel.com/docs/6.x/validation)
 
-- Criar Form Request Validation, executar o seguinte comando:
+- Criar Nova Migration Para criação da tabela ```posts```:
 
 ```bash
-php artisan make:request ValidarDev
+php artisan make:migration create_posts_table --create=posts
 ```
 
-- Isso irá criar o arquivo ```app/Http/Requests/ValidarDev```
+- Isso irá criar mais um arquivo dentro de ```database/migrations```
+
+- Abra e edite esse arquivo, vamos alterar a função ```up()``` desse arquivo:
+
+```php
+Schema::create('posts', function (Blueprint $table) {
+    $table->bigIncrements('id');
+    $table->string('titulo');
+    $table->text('descricao');
+    $table->timestamps();
+});
+```
+
+- Execute a migration:
+
+```bash
+php artisan migrate
+```
+
+- Será criada a tabela ```posts``` na base de dados
 
 ---
 
-- Adicionar ```use``` no arquivo:
+<h2>Criando o Model</h2>
 
-```php
-use Illuminate\Contracts\Validation\Validator; // para implementar a function: failedValidation() que ao invés de redirecionar retornará uma resposta json
-use Illuminate\Http\Exceptions\HttpResponseException; // para retornar a resposta em json que sera implementada na function faile
+- Execute o comando para criar o model:
+
+```bash
+php artisan make:model Http\\Models\\Posts
 ```
 
-- Alterar o return da função ```authorize()``` para:
+- Irá criar um arquivo em ```app/Http/Models/Posts```, vamos edita-lo adicionando o seguinte dentro da class:
 
 ```php
-/**
- * Se o método authorize retornar false, uma resposta HTTP com um código de status 403 será retornada automaticamente e o método do controlador não será executado.
- * Se você planeja ter lógica de autorização em outra parte do seu aplicativo, retorne true no método authorize:
- * return true;
- */
+protected $table = 'posts';
+protected $primaryKey = 'id';
+protected $guarded = [];
+```
 
+---
+
+<h2>Criando o Controller</h2>
+
+- Execute o comando para criar o controller:
+
+```bash
+php artisan make:controller PostController --resource
+```
+
+- Será criado o arquivo ```app/Http/Controllers/PostController```, vamos implementar algumas funções;
+
+- Inicialmente adicione a seguinte ```use``` ao arquivo:
+
+```php
+use App\Http\Models\Posts;
+```
+
+- No metodo ```index()``` adicione o seguinte:
+
+```php
+$post = Posts::all();
+return $post;
+```
+
+- No metodo ```store()``` adicione o seguinte:
+
+```php
+$json = $request->json()->all();
+$post = Posts::create($json);
+$post->save();
+return $post;
+```
+
+- No metodo ```update()``` adicione o seguinte:
+
+```php
+$json = $request->only(['titulo', 'descricao']);
+
+$post = Posts::find($id);
+
+if (!$post) {
+    return response()->json(['error' => 'Not found'], 404);
+}
+
+$post->update($json);
+$post->save();
+
+return $post;
+```
+
+- Finalmente no metodo ```destroy()``` adicione o seguinte:
+
+```php
+$post = Posts::find($id);
+
+if (!$post) {
+    return response()->json(['error' => 'Not Found'], 404);
+}
+
+$post->delete();
+
+return response()->json(['ok' => 'Registro removido']);
+```
+
+---
+
+<h2>Validação</h2>
+
+- Executar o comando:
+
+```bash
+php artisan make:request ValidarPost
+```
+
+- Será criado o arquivo em ```app/Http/Requests/ValidarPost```
+
+- Vamos realizar as modificações necessárias:
+
+- Adicionar as ```use```:
+
+```php
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
+```
+
+- Alterar o return da function ```authorize()``` para:
+
+```php
 return true;
 ```
 
-- Adicionar a function ```rules()``` :
+- Na function ```rules()``` alterar o conteudo para o seguinte:
 
 ```php
-$id = $this->route('id');
+// Para criação de um novo registro todos os campos devem ser validados
+if ($this->isMethod('POST')) {
+    return [
+        'titulo' => 'required|max:191',
+        'descricao' => 'required',
+    ];
+}
 
-return [
-    'github_username' => 'required|unique:devs,github_username,' . $id . '|max:191',
-    'nome' => 'required',
-];
+// Quando for atualização de um registro, validar apenas o que foi enviado
+$validacao = [];
+
+if ($this->has('descricao')) {
+    $validacao = ['descricao' => 'required'];
+}
+
+if ($this->has('titulo')) {
+    $validacao = ['titulo' => 'required|max:191'];
+}
+
+return $validacao;
 ```
 
-** As chaves do array (```github_username => ...``` e ```nome => ... ```) devem corresponder aos campos que será enviados pela requisição nos metodos POST e PUT **
-
-** Os valores de cada chave correspondem a validação de cada campo:
-
-| Regra | O que significa |
-|-------|-----------------|
-| ```required```| Campo obrigatório, deve ser informado na requisição e não pode ser vazio|
-| ```unique``` | O valor do campo deve ser unico na tabela, essa regra possuí mais parametros:  <br /><b>1 -</b> Nome da tabela; <br /> <b>2 -</b> Nome da coluna na tabela do qual seu valor deverá ser unico; <br /> <b>3 -</b> Exceção, no caso quando alteramos o registro queremos que seja verificado se o valor informado é diferente de todos os outros exceto ao registro que possuí o id que estamos alterando; <br> Mais detalhes na [Documentação do Laravel](https://laravel.com/docs/6.x/validation#rule-unique) |
-| ```max``` | Deve informar o valor máximo permitido para o campo ex.: ```max:191```, irá validar se o campo possuí no máximo essa quantidade de caracteres |
-
-- Outras regras disponíveis em: [Available Validation Rules](https://laravel.com/docs/6.x/validation#available-validation-rules)
-
-
----
-
-<h2>Personalizar as mensagens de erro</h2>
-
-- Adicionar a seguinte função no arquivo ```ValidarDev.php```:
+- Adicionar a seguinte function para personalizar as mensagens:
 
 ```php
 public function messages()
 {
     return [
-        'github_username.unique'
-        => 'username já cadastrado por outro usuário',
-        'github_username.required' => 'Campo obrigatório',
-        'github_username.max' => 'O campo deverá conter no máximo :max',
-        'nome.required' => 'Campo obrigatório',
+        'titulo.required' => 'Campo obrigatório',
+        'titulo.max' => 'O campo deverá conter no máximo :max',
+        'descricao.required' => 'Campo obrigatório',
     ];
 }
 ```
 
-- Como isso funciona?:
-
-- Ele é um array de ```chave => valor```, onde a chave é composta pelo, nome do campo que queremos validar, mais "```.```" e em seguida a regra que receberá a mensagem caso o erro ocorra, estrutura:
+- Por fim adincionar a seguinte função para retornar os erros de validação via JSON:
 
 ```php
-'nome_do_meu_campo.regra' => 'Minha mensagem personalizada',
-```
-
----
-
-<h2>Mais um ajuste</h2>
-
-- Por padrão o Form Request Validation irá redirecionar para rota que fez a requisição reportando os erros, porém quando trabalhamos com REST API, esse padrão não serve, precisamos alterar o padrão, para isso implementamos a função ```failedValidation``` no nosso arquivo, dessa forma:
-
-```php
-// Não esqueça de adicionar as uses:
-/*
-use Illuminate\Contracts\Validation\Validator; // para implementar a function: failedValidation() que ao invés de redirecionar retornará uma resposta json
-use Illuminate\Http\Exceptions\HttpResponseException; // para retornar a resposta em json que sera implementada na function faile
-*/
-
 protected function failedValidation(Validator $validator)
 {
-    // retorna o Json com os erros de validação e resposta de status 400 (Bad request)
     throw new HttpResponseException(response()
         ->json($validator->errors(), 400));
 }
 ```
 
-- Ok o arquivo ```ValidarDev.php```, está pronto, agora vamos ajustar o controller.
+---
+<h2>Ajustar Controller</h2>
+
+- No arquivo ```PostController``` add ```use```:
+
+```php
+use App\Http\Requests\ValidarPost;
+```
+
+- Ajustar function ```public function store(Request $request)``` para ```public function store(ValidarPost $request)```
+
+- Ajustar function ```public function update(Request $request, $id)``` para ```public function update(ValidarPost $request, $id)```
+
+---
+<h2>Criar Rota</h2>
+
+- No arquivo ```routes/web.php``` adicionar a seguinte rota:
+
+```php
+Route::resource('post', 'PostController')->parameters([
+    'post' => 'id'
+]);
+```
+---
+
+<h2>Criar testes com o Postman</h2>
+
+- **Verifique se o servidor está rodando, do contrário execute:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: POST;
+- Url: http://localhost:8000/post
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "titulo": "Meu titulo1",
+    "descricao": "minha descricao"
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá inserir o registro.
 
 ---
 
-<h2>Ajuste no controller DevController</h2>
+- No [Postman](https://www.postman.com/) criar a rota
 
-- Adicionar a use:
-```php
-use App\Http\Requests\ValidarDev;
+- Metodo: GET;
+- Url: http://localhost:8000/post
+
+- Clicar no botão SEND.
+
+- E será retornado os registros da tabela
+
+---
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: PUT;
+- Url: http://localhost:8000/post/1
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "titulo": "Meu titulo1 alterado",
+    "descricao": "minha descricao alterado"
+}
 ```
 
-- Ajustar a função ```public function store(Request $request)``` para:
-```public function store(ValidarDev $request)```
+- Clicar no botão SEND.
 
-- Ajustar a função ```public function update(Request $request, $id)``` para:
-```public function update(ValidarDev $request, $id)```
+- E na base de dados deverá alterar o registro.
 
-- Pronto, agora só testar e nossa validação estará funcionando.
+---
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: DELETE;
+- Url: http://localhost:8000/post/1
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá reover o registro.
+
+---
