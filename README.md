@@ -14,7 +14,7 @@ php artisan make:request ValidarDev
 
 ---
 
-- Adicionar ```use`` no arquivo:
+- Adicionar ```use``` no arquivo:
 
 ```php
 use Illuminate\Contracts\Validation\Validator; // para implementar a function: failedValidation() que ao invés de redirecionar retornará uma resposta json
