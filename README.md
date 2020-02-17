@@ -183,10 +183,6 @@ php artisan migrate
 
 ---
 
-<strong>Parte em construção ainda</strong>
-
----
-
 <h2>Ajustar Models</h2>
 
 - No model Techs adicionar a function:
