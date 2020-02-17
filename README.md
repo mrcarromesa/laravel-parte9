@@ -246,14 +246,47 @@ use App\Http\Models\Techs;
 - na function ```store()``` adicione o seguinte:
 
 ```php
-$techs = Techs::whereIn('id', [1, 4])->get();
-$devs = Devs::create(['nome' => 'N1', 'github_username' => 'n1']);
-//$devs->techs()->attach($techs, ['status' => 'A']);
-$devs->techs()->attach($techs);
+$json = $request->only(['nome', 'github_username']);
+$json_techs = $request->only(['techs']);
+
+// Nao obrigatorio apenas um exemplo de consulta de techs pelo id.
+$techs = Techs::whereIn('id', $json_techs['techs'])->get();
+$devs = Devs::create($json);
+
+$devs->techs()->attach($techs, ['status' => 'A']);
 $devs->save();
 
 return $devs;
 ```
+
+---
+
+<h2>Criar testes com o Postman</h2>
+
+- **Verifique se o servidor está rodando, do contrário execute:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: POST;
+- Url: http://localhost:8000/dev-tech
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "nome": "Meu Nome",
+    "github_username": "meu_github_username",
+    "techs": ["1","2"]
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá inserir os registros na tabela devs e na dev_techs.
 
 ---
 
@@ -296,14 +329,44 @@ php artisan migrate
 - No controller ```DevTechsController``` adicionar a function ```update()```:
 
 ```php
-$techs = Techs::whereIn('id', [1])->get();
-
-//$devs = Devs::with(['devTechs.techs'])->get();
-$devs = Devs::find(7);
-$devs->techs()->syncWithoutDetaching([4 => ['status' => 'B']]);
+//$techs = Techs::whereIn('id', [1])->get();
+$json_techs = $request->only(['techs']);
+//dd($json_techs['techs']);
+$devs = Devs::find($id);
+//$devs->techs()->syncWithoutDetaching([4 => ['status' => 'B']]);
+$devs->techs()->syncWithoutDetaching($json_techs['techs']);
 $devs->save();
 return $devs;
 ```
+
+---
+
+<h2>Criar testes com o Postman</h2>
+
+- **Verifique se o servidor está rodando, do contrário execute:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: PUT;
+- Url: http://localhost:8000/dev-tech/1
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "nome": "Meu Nome",
+    "github_username": "meu_github_username",
+    "techs": {"1": {"status": "A"},"2": {"status": "I" } }
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá inserir os registros na tabela devs e na dev_techs.
 
 ---
 
@@ -312,21 +375,155 @@ return $devs;
 - Adicionar a function ```destroy()```:
 
 ```php
-$techs = Techs::whereIn('id', [1])->get();
+$json_techs = request()->only(['techs']);
+//$techs = Techs::whereIn('id', [1])->get();
 
 //$devs = Devs::with(['devTechs.techs'])->get();
-$devs = Devs::find(7);
-$devs->techs()->detach($techs);
+$devs = Devs::find($id);
+$devs->techs()->detach($json_techs['techs']);
 $devs->save();
+
+return response()->json(['ok', 'Techs removidas.']);
 ```
+
+---
+
+<h2>Criar testes com o Postman</h2>
+
+- **Verifique se o servidor está rodando, do contrário execute:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: DELETE;
+- Url: http://localhost:8000/dev-tech/1
+- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
+- No campo de texto adiconar:
+
+```js
+{
+    "techs": ["1","2"]
+}
+```
+
+- Clicar no botão SEND.
+
+- E na base de dados deverá remover os registros na tabela dev_techs.
 
 ---
 
 <h2>Listar registros</h2>
 
+- Vamos prepara algumas situações antes, adicione no inicio da Class ```DevTechsController```:
+
+```php
+/**
+ * Retorna os devs em que as techs dominadas vinculadas a ele
+ * estejam com o status = a @param string $status
+ */
+private function getDevsTechsByStatus($status)
+{
+    // use ($status) : envia a variavel $status presente na funcao para a
+    // funcao aninhada
+    $devs = Devs::whereHas('techs', function ($query) use ($status) {
+        return $query->where('status', $status);
+    })->get();
+
+    return $devs;
+}
+
+/**
+ * Retorna os devs em que as techs dominadas vinculadas a ele
+ * estejam com o status diferente a @param string $status
+ */
+private function getDevsTechsByNotStatus($status)
+{
+    $devs = Devs::whereDoesntHave('techs', function ($query) use ($status) {
+        return $query->where('status', $status);
+    })->get();
+
+    return $devs;
+}
+
+/**
+ * Retorna as techs dominada pelo dev informado, conforme o status tambem enviado
+ * @param Devs $dev; Esperado: $dev = Devs::find(1);
+ * @param string $status
+ */
+private function getComplexDevTechsByDev(Devs $dev, $status)
+{
+    return $dev->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')
+        ->withPivot('id', 'status')->wherePivot('status', $status)->get();
+}
+
+/**
+ * Retorna as techs dominada pelo dev informado, conforme o status tambem enviado
+ * @param Devs $dev; Esperado: $dev = Devs::find(1);
+ * @param string $status
+ */
+private function getDevTechsByDev(Devs $dev, $status)
+{
+    return $dev->techs()->wherePivot('status', $status)->get();
+}
+
+/**
+ * Retorna os devs e as techs dominada por ele
+ */
+private function getDevsWithTechs()
+{
+    $devs = Devs::with(['techs'])->get();
+    return $devs;
+}
+
+
+/**
+ * Retorna os devs e as techs dominada por ele filtrado
+ */
+private function getDevsWithTechsFilter($status)
+{
+    $devs = Devs::whereHas('techs', function ($query) use ($status) {
+        return $query->where('status', $status);
+    })->with(['techs' => function ($query) use ($status) {
+        return $query->wherePivot('status', $status);
+    }])->get();
+    return $devs;
+}
+```
+
 - Na function ```index()``` adicionar:
 
 ```php
-$devs = Devs::with(['techs'])->get();
-return $devs;
+$id = request('id');
+//return $this->getDevsTechsByStatus('A');
+//return $this->getDevsTechsByNotStatus('A');
+//return $this->getComplexDevTechsByDev(Devs::find($id), 'A');
+//return $this->getDevTechsByDev(Devs::find($id), 'A');
+//return $this->getDevsWithTechs();
+return $this->getDevsWithTechsFilter('A');
 ```
+
+- Agora só descomentar e testar!!!
+
+---
+
+<h2>Criar testes com o Postman</h2>
+
+- **Verifique se o servidor está rodando, do contrário execute:
+
+```bash
+php artisan serve
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Metodo: GET;
+- Url: http://localhost:8000/dev-tech?id=1
+
+- Clicar no botão SEND.
+
+- E derá retornar os registros.
+
+---
