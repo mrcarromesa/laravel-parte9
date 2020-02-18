@@ -391,6 +391,32 @@ Poderá utilizar para as demais rotas a autenticação.
 
 ---
 
+<h2>Acessando rotas autenticada</h2>
+
+- Ajustes uma rota para utilizar a autenticação:
+
+```php
+Route::group(['middleware' => 'auth:api'], function () {
+    //Route::post('details', 'API\UserController@details');
+    Route::resource('dev-tech', 'DevTechsController')->parameters([
+        'dev-tech' => 'id'
+    ]);
+});
+```
+
+- No [Postman](https://www.postman.com/) criar a rota
+
+- Ajustes todos os metodos que acessam `dev-tech`,
+
+- Na aba Headers adicione a chave: `Accept` com o valor: `application/json`
+
+- Na aba 
+Authorization, a opção Type deverá ser: OAuth 2.0; e no campo que aparecerá `Access Token` inserir o token gerado pelo login.
+
+- Agora acesse normalmente essa rota.
+
+---
+
 <h2>Reset Password</h2>
 
 - Criar o model PasswordReset:
