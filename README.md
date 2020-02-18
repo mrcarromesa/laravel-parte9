@@ -1,525 +1,322 @@
-<h1>Laravel parte 6</h1>
+<h1>Laravel parte 7</h1>
 
 <strong>Referências:</strong>
 
-- [Migration](https://laravel.com/docs/6.x/migrations)
-- [Model](https://laravel.com/docs/6.x/eloquent#defining-models)
+- [Vídeo](https://www.youtube.com/watch?v=0hGsLgnrk68)
+- [Git](https://github.com/anil-sidhu/laravel-passport-poc)
+- [API Authentication](https://laravel.com/docs/6.x/api-authentication)
 
-- Criar migrate para criar tabelas techs:
+- Instalar o pacote laravel/passaport:
 
 ```bash
-php artisan make:migration create_techs_table --create=techs
+composer require laravel/passport
 ```
 
-- Abrir o arquivo criado em ```database/migrations```
-
-- Alterar conteudo da function ```up()``` para:
+- Abrir o arquivo `config/app.php` e adicionar o service provider:
 
 ```php
-Schema::create('techs', function (Blueprint $table) {
-    $table->bigIncrements('id');
-    $table->string('nome');
-    $table->timestamps();
-});
-```
-- Executar a migration:
-
-```bash
-php artisan migrate
+// config/app.php
+'providers' =>[
+    Laravel\Passport\PassportServiceProvider::class,
+],
 ```
 
-- Irá criar a tabela ```techs```
-
----
-
-<h2>Inserir Registros utilizando seeders</h2>
-
-- Executar o comando:
-
-```bash
-php artisan make:seeder TechsTableSeeder
-```
-
-- Será criado um arquivo na pasta ```database/seeds/TechsTableSeeder```
-
-- Adicionar a ```use``` no arquivo:
-
-```php
-use Illuminate\Support\Facades\DB;
-```
-
-- Altere o arquivo, adicionando o seguinte na function ```run()```:
-
-```php
-$techs = ['PHP', 'React', 'NodeJS', 'Delphi'];
-
-foreach ($techs as $value) {
-    DB::table('techs')->insert([
-        'nome' => $value
-    ]);
-}
-```
-
-- Executar o comando:
-
-```bash
-php artisan db:seed --class=TechsTableSeeder
-```
-
-- Será inserido registros na tabela ```techs```
-
----
-
-<h2>Criar o Model</h2>
-
-- Executar o comando:
-
-```bash
-php artisan make:model Http\\Models\\Techs
-```
-- Será criado o Model ```Techs```, adicione o seguinte dentro da class:
-
-```php
-protected $table = 'techs';
-protected $primaryKey = 'id';
-protected $guarded = [];
-```
-
----
-
-<h2>A ideia do projeto</h2>
-
-- Atualmente no projeto temos as 3 principais tabelas:
-
-    - devs
-    - posts
-    - techs
-
-- A tabela posts está relacionada com a tabela devs, ou seja cada dev pode ter um ou mais posts:
-
-| Devs |  | |
-|-----| -----|----|
-| id  | nome | github_username |
-|   1 | Nome1 | usuario1 |
-
-
-| Posts | | | |
-|-------| ------ | --- | --- |
-| id | titulo | descricao | dev_id |
-|   1 | Teste 1 | descr1...|  1 |
-|   2 | Teste 2 | descr2...|  1 |
-
-
-- A tabela ```techs``` foi criada. Qual a ideia?
-
-- Relacionar a tabela ```devs``` com a tabela ```techs``` ou seja:
-
-- Cada dev poderá dominar 1 ou mais techs.
-
-- E
-
-- Cada tech pode ser dominada por 1 ou mais devs
-
-- ou seja temos uma relação de muitos para muitos.
-
-- Vamos criar a tabela intermediaria mais a frente, antes vamos ver como ficará o relacionamento:
-
-| Devs |  | |
-|-----| -----|----|
-| id  | nome | github_username |
-|   1 | Nome1 | usuario1 |
-
-
-
-| Devs Techs |  | |
-|----|----|----|
-| id | dev_id | tech_id |
-|   1|   1 |  1|
-|   2|   1 |  2|
-
-
-
-| Techs  |      |
-|--------|------|
-|  id    | nome |
-|    1   | NodeJS  |
-|    2   | React  |
-
-
----
-
-<h2>Agora que temos a ideia do relacionamento muitos para muitos, vamos criar a tabela intermediarai</h2>
-
-- Executar a migration:
-
-```bash
-php artisan make:migration create_dev_techs_table --create=dev_techs
-```
-
-- Será criado mais um arquivo na pasta ```database/migrations```
-
-- alterar a function ```up()``` desse arquivo:
-
-```php
-Schema::create('dev_techs', function (Blueprint $table) {
-    $table->bigIncrements('id');
-    $table->bigInteger('id_dev')->nullable()->unsigned();
-    $table->bigInteger('id_tech')->nullable()->unsigned();
-    $table->timestamps();
-
-    $table->foreign('id_dev', 'fk_id_dev')->references('id')->on('devs')->onDelete('set null');
-
-    $table->foreign('id_tech', 'fk_id_tech')->references('id')->on('techs')->onDelete('set null');
-});
-```
-
-- Executar migration:
+- Executar as migrations:
 
 ```bash
 php artisan migrate
 ```
 
-- Foi criado a tabela ```dev_techs```
+- Aplicar as alterações:
 
----
+```bash
+php artisan passport:install
+```
 
-<h2>Ajustar Models</h2>
-
-- No model Techs adicionar a function:
+- Ajustar Model `app/User`:
 
 ```php
-public function devs()
+
+namespace App;
+
+use Laravel\Passport\HasApiTokens;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
 {
+    use HasApiTokens, Notifiable;
 
-    // Parametros:
-    // 1 - Classe do outro model principal, nao o intermediario e sim o principal
-    // 2 - nome da tabela intermediaria
-    // 3 - id correspondente na tabela intermediaria foreingkey do presente model nesse caso do Techs
-    // 4 - id correspondente na tabela intermediaria foreingkey do outro model princiapl no caso do Devs
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'name', 'email', 'password',
+    ];
 
-    return $this->belongsToMany('App\Http\Models\Devs', 'dev_techs', 'id_tech', 'id_dev');
+    /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @var array
+     */
+    protected $hidden = [
+        'password', 'remember_token',
+    ];
+
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+}
+
+```
+
+- Ajustar arquivo `app/Providers/AuthServiceProvider.php`: (Talvez não necessário):
+
+```php
+namespace App\Providers;
+
+use Laravel\Passport\Passport;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+
+class AuthServiceProvider extends ServiceProvider
+{
+    /**
+     * The policy mappings for the application.
+     *
+     * @var array
+     */
+    protected $policies = [
+        'App\Model' => 'App\Policies\ModelPolicy',
+    ];
+
+    /**
+     * Register any authentication / authorization services.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        $this->registerPolicies();
+        Passport::routes();
+
+        //
+    }
 }
 ```
 
-- No model Devs, adicionar a seguinte function:
+- Ajustar arquivo `config/auth.php`:
 
 ```php
-public function techs()
-{
-    // Parametros:
-    // 1 - Classe do outro model principal, nao o intermediario e sim o principal
-    // 2 - nome da tabela intermediaria
-    // 3 - id correspondente na tabela intermediaria foreingkey do presente model nesse caso do Devs
-    // 4 - id correspondente na tabela intermediaria foreingkey do outro model princiapl no caso do Techs
+/*
+    |--------------------------------------------------------------------------
+    | Authentication Defaults
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default authentication "guard" and password
+    | reset options for your application. You may change these defaults
+    | as required, but they're a perfect start for most applications.
+    |
+    */
 
-    return $this->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')->withPivot('status', 'id');
-}
+    'defaults' => [
+        'guard' => 'web',
+        'passwords' => 'users',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Guards
+    |--------------------------------------------------------------------------
+    |
+    | Next, you may define every authentication guard for your application.
+    | Of course, a great default configuration has been defined for you
+    | here which uses session storage and the Eloquent user provider.
+    |
+    | All authentication drivers have a user provider. This defines how the
+    | users are actually retrieved out of your database or other storage
+    | mechanisms used by this application to persist your user's data.
+    |
+    | Supported: "session", "token"
+    |
+    */
+
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'api' => [
+            'driver' => 'passport',
+            'provider' => 'users',
+            //'hash' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Providers
+    |--------------------------------------------------------------------------
+    |
+    | All authentication drivers have a user provider. This defines how the
+    | users are actually retrieved out of your database or other storage
+    | mechanisms used by this application to persist your user's data.
+    |
+    | If you have multiple user tables or models you may configure multiple
+    | sources which represent each model / table. These sources may then
+    | be assigned to any extra authentication guards you have defined.
+    |
+    | Supported: "database", "eloquent"
+    |
+    */
+
+    'providers' => [
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\User::class,
+        ],
+
+        // 'users' => [
+        //     'driver' => 'database',
+        //     'table' => 'users',
+        // ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resetting Passwords
+    |--------------------------------------------------------------------------
+    |
+    | You may specify multiple password reset configurations if you have more
+    | than one user table or model in the application and you want to have
+    | separate password reset settings based on the specific user types.
+    |
+    | The expire time is the number of minutes that the reset token should be
+    | considered valid. This security feature keeps tokens short-lived so
+    | they have less time to be guessed. You may change this as needed.
+    |
+    */
+
+    'passwords' => [
+        'users' => [
+            'provider' => 'users',
+            'table' => 'password_resets',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Password Confirmation Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define the amount of seconds before a password confirmation
+    | times out and the user is prompted to re-enter their password via the
+    | confirmation screen. By default, the timeout lasts for three hours.
+    |
+    */
+
+    'password_timeout' => 10800,
+
+];
 ```
 
----
-
-<h2>Criando o Controller</h2>
-
-- Vamos criar o controller para trabalhar com os dois models:
-
-```bash
-php artisan make:controller DevTechsController --resource
-```
-
-- Será criado o controller DevTechsController
-
----
-
-<h2>Implementando o controller DevTechsController</h2>
-
-- Adicione a ```use```:
+- Ajustar o arquivo `routes/api.php`
 
 ```php
-use App\Http\Models\Devs;
-use App\Http\Models\Techs;
-```
-
-- na function ```store()``` adicione o seguinte:
-
-```php
-$json = $request->only(['nome', 'github_username']);
-$json_techs = $request->only(['techs']);
-
-// Nao obrigatorio apenas um exemplo de consulta de techs pelo id.
-$techs = Techs::whereIn('id', $json_techs['techs'])->get();
-$devs = Devs::create($json);
-
-$devs->techs()->attach($techs, ['status' => 'A']);
-$devs->save();
-
-return $devs;
-```
-
----
-
-<h2>Criar testes com o Postman</h2>
-
-- **Verifique se o servidor está rodando, do contrário execute:
-
-```bash
-php artisan serve
-```
-
-- No [Postman](https://www.postman.com/) criar a rota
-
-- Metodo: POST;
-- Url: http://localhost:8000/dev-tech
-- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
-- No campo de texto adiconar:
-
-```js
-{
-    "nome": "Meu Nome",
-    "github_username": "meu_github_username",
-    "techs": ["1","2"]
-}
-```
-
-- Clicar no botão SEND.
-
-- E na base de dados deverá inserir os registros na tabela devs e na dev_techs.
-
----
-
-<h2>Alteração</h2>
-
-- Para melhor vermos como funciona a alteração, vamos adicionar o campo status na tabela ```dev_techs```:
-
-```bash
-php artisan make:migration add_status_to_dev_techs_table --table=dev_techs
-```
-
-- No arquivo que foi criado em ```database/migrations``` alterar o conteudo da function ```up()```
-
-```php
-Schema::table('dev_techs', function (Blueprint $table) {
-    $table->string('status');
+Route::post('login', 'API\UserController@login');
+Route::post('register', 'API\UserController@register');
+Route::group(['middleware' => 'auth:api'], function(){
+Route::post('details', 'API\UserController@details');
 });
 ```
 
-- alterar o conteudo da function ```down()```
-
-```php
-Schema::table('dev_techs', function (Blueprint $table) {
-    $table->dropColumn('status');
-});
-```
-
-- Executar a mirgation:
+- Criar o controller:
 
 ```bash
-php artisan migrate 
+php artisan make:controller API\\UserController
 ```
 
-- Será criado o campo ```status``` na tabela ```dev_techs```;
-
----
-
-<h2>Realizar update de registro</h2>
-
-- No controller ```DevTechsController``` adicionar a function ```update()```:
+- Ajustar controller `API\UserController`:
 
 ```php
-//$techs = Techs::whereIn('id', [1])->get();
-$json_techs = $request->only(['techs']);
-//dd($json_techs['techs']);
-$devs = Devs::find($id);
-//$devs->techs()->syncWithoutDetaching([4 => ['status' => 'B']]);
-$devs->techs()->syncWithoutDetaching($json_techs['techs']);
-$devs->save();
-return $devs;
+namespace App\Http\Controllers\API;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\User;
+use Illuminate\Support\Facades\Auth;
+use Validator;
+
+class UserController extends Controller
+{
+    public $successStatus = 200;
+    /**
+     * login api
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function login()
+    {
+        if (Auth::attempt(['email' => request('email'), 'password' => request('password')])) {
+            $user = Auth::user();
+            $success['token'] =  $user->createToken('MyApp')->accessToken;
+            return response()->json(['success' => $success], $this->successStatus);
+        } else {
+            return response()->json(['error' => 'Unauthorised'], 401);
+        }
+    }
+    /**
+     * Register api
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required',
+            'email' => 'required|email',
+            'password' => 'required',
+            'c_password' => 'required|same:password',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 401);
+        }
+        $input = $request->all();
+        $input['password'] = bcrypt($input['password']);
+        $user = User::create($input);
+        $success['token'] =  $user->createToken('MyApp')->accessToken;
+        $success['name'] =  $user->name;
+        return response()->json(['success' => $success], $this->successStatus);
+    }
+    /**
+     * details api
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function details()
+    {
+        $user = Auth::user();
+        return response()->json(['success' => $user], $this->successStatus);
+    }
+}
 ```
 
----
 
-<h2>Criar testes com o Postman</h2>
-
-- **Verifique se o servidor está rodando, do contrário execute:
+- No Postman em todas as rotas adicionar a opção no header:
 
 ```bash
-php artisan serve
+Accept: application/json
 ```
 
-- No [Postman](https://www.postman.com/) criar a rota
-
-- Metodo: PUT;
-- Url: http://localhost:8000/dev-tech/1
-- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
-- No campo de texto adiconar:
-
-```js
-{
-    "nome": "Meu Nome",
-    "github_username": "meu_github_username",
-    "techs": {"1": {"status": "A"},"2": {"status": "I" } }
-}
-```
-
-- Clicar no botão SEND.
-
-- E na base de dados deverá inserir os registros na tabela devs e na dev_techs.
-
----
-
-<h2>Remover registros</h2>
-
-- Adicionar a function ```destroy()```:
-
-```php
-$json_techs = request()->only(['techs']);
-//$techs = Techs::whereIn('id', [1])->get();
-
-//$devs = Devs::with(['devTechs.techs'])->get();
-$devs = Devs::find($id);
-$devs->techs()->detach($json_techs['techs']);
-$devs->save();
-
-return response()->json(['ok', 'Techs removidas.']);
-```
-
----
-
-<h2>Criar testes com o Postman</h2>
-
-- **Verifique se o servidor está rodando, do contrário execute:
-
-```bash
-php artisan serve
-```
-
-- No [Postman](https://www.postman.com/) criar a rota
-
-- Metodo: DELETE;
-- Url: http://localhost:8000/dev-tech/1
-- Na requisição na aba Body opção raw, Opção JSON ao invés de Text.
-- No campo de texto adiconar:
-
-```js
-{
-    "techs": ["1","2"]
-}
-```
-
-- Clicar no botão SEND.
-
-- E na base de dados deverá remover os registros na tabela dev_techs.
-
----
-
-<h2>Listar registros</h2>
-
-- Vamos prepara algumas situações antes, adicione no inicio da Class ```DevTechsController```:
-
-```php
-/**
- * Retorna os devs em que as techs dominadas vinculadas a ele
- * estejam com o status = a @param string $status
- */
-private function getDevsTechsByStatus($status)
-{
-    // use ($status) : envia a variavel $status presente na funcao para a
-    // funcao aninhada
-    $devs = Devs::whereHas('techs', function ($query) use ($status) {
-        return $query->where('status', $status);
-    })->get();
-
-    return $devs;
-}
-
-/**
- * Retorna os devs em que as techs dominadas vinculadas a ele
- * estejam com o status diferente a @param string $status
- */
-private function getDevsTechsByNotStatus($status)
-{
-    $devs = Devs::whereDoesntHave('techs', function ($query) use ($status) {
-        return $query->where('status', $status);
-    })->get();
-
-    return $devs;
-}
-
-/**
- * Retorna as techs dominada pelo dev informado, conforme o status tambem enviado
- * @param Devs $dev; Esperado: $dev = Devs::find(1);
- * @param string $status
- */
-private function getComplexDevTechsByDev(Devs $dev, $status)
-{
-    return $dev->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')
-        ->withPivot('id', 'status')->wherePivot('status', $status)->get();
-}
-
-/**
- * Retorna as techs dominada pelo dev informado, conforme o status tambem enviado
- * @param Devs $dev; Esperado: $dev = Devs::find(1);
- * @param string $status
- */
-private function getDevTechsByDev(Devs $dev, $status)
-{
-    return $dev->techs()->wherePivot('status', $status)->get();
-}
-
-/**
- * Retorna os devs e as techs dominada por ele
- */
-private function getDevsWithTechs()
-{
-    $devs = Devs::with(['techs'])->get();
-    return $devs;
-}
-
-
-/**
- * Retorna os devs e as techs dominada por ele filtrado
- */
-private function getDevsWithTechsFilter($status)
-{
-    $devs = Devs::whereHas('techs', function ($query) use ($status) {
-        return $query->where('status', $status);
-    })->with(['techs' => function ($query) use ($status) {
-        return $query->wherePivot('status', $status);
-    }])->get();
-    return $devs;
-}
-```
-
-- Na function ```index()``` adicionar:
-
-```php
-$id = request('id');
-//return $this->getDevsTechsByStatus('A');
-//return $this->getDevsTechsByNotStatus('A');
-//return $this->getComplexDevTechsByDev(Devs::find($id), 'A');
-//return $this->getDevTechsByDev(Devs::find($id), 'A');
-//return $this->getDevsWithTechs();
-return $this->getDevsWithTechsFilter('A');
-```
-
-- Agora só descomentar e testar!!!
-
----
-
-<h2>Criar testes com o Postman</h2>
-
-- **Verifique se o servidor está rodando, do contrário execute:
-
-```bash
-php artisan serve
-```
-
-- No [Postman](https://www.postman.com/) criar a rota
-
-- Metodo: GET;
-- Url: http://localhost:8000/dev-tech?id=1
-
-- Clicar no botão SEND.
-
-- E derá retornar os registros.
-
----
+- Para evitar redirecionamento no `App\Http\Middleware\Authenticate`
