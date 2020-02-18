@@ -29,6 +29,9 @@ Route::resource('dev-post', 'DevPostController')->parameters([
     'dev-post' => 'id'
 ]);
 
-Route::resource('dev-tech', 'DevTechsController')->parameters([
-    'dev-tech' => 'id'
-]);
+Route::group(['middleware' => 'auth:api'], function () {
+    //Route::post('details', 'API\UserController@details');
+    Route::resource('dev-tech', 'DevTechsController')->parameters([
+        'dev-tech' => 'id'
+    ]);
+});

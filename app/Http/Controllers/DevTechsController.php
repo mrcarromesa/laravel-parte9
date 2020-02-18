@@ -95,8 +95,8 @@ class DevTechsController extends Controller
         //return $this->getDevsTechsByNotStatus('A');
         //return $this->getComplexDevTechsByDev(Devs::find($id), 'A');
         //return $this->getDevTechsByDev(Devs::find($id), 'A');
-        //return $this->getDevsWithTechs();
-        return $this->getDevsWithTechsFilter('A');
+        return $this->getDevsWithTechs();
+        //return $this->getDevsWithTechsFilter('A');
     }
 
     /**
