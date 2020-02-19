@@ -20,7 +20,9 @@ class Devs extends Model
         // 3 - id correspondente na tabela intermediaria foreingkey do presente model nesse caso do Devs
         // 4 - id correspondente na tabela intermediaria foreingkey do outro model princiapl no caso do Techs
 
-        return $this->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')->withPivot('status', 'id');
+        return $this->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')
+            ->withPivot('status', 'id')
+            ->using('App\Http\Models\Pivot\DevTechs');
     }
 
 
