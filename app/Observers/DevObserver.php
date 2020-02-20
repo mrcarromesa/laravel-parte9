@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Http\Models\Devs;
+use App\Jobs\SendEmailJob;
 use Illuminate\Support\Facades\Log;
 
 class DevObserver
@@ -16,6 +17,10 @@ class DevObserver
     public function created(Devs $devs)
     {
         Log::alert('created ' . $devs->toJson());
+
+        $details['email'] = 'your_email@gmail.com';
+        //dd($devs->toArray());
+        SendEmailJob::dispatch($devs->toArray(), $details);
     }
 
     /**

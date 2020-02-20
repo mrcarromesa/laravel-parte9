@@ -1,143 +1,188 @@
-<h1>Laravel parte 8</h1>
+<h1>Laravel parte 9</h1>
 
 <strong>Referências:</strong>
 
-- [Observers](https://laravel.com/docs/6.x/eloquent#observers)
-- [Observer BelongsToMany pivot table](https://github.com/laravel/nova-issues/issues/944)
-
+- [How to send mail using queue in Laravel 5.7?](https://www.itsolutionstuff.com/post/how-to-send-mail-using-queue-in-laravel-57example.html)
 
 ---
 
-<h2>Observers para Model normal</h2>
-
-- Criar observer:
+- Criar Class para envio de e-mail:
 
 ```bash
-php artisan make:observer DevObserver --model=Http\\Models\\Devs
+php artisan make:mail SendEmailDevs
 ```
 
-- Será criada um arquivo `app/Observers/DevObserver.php`, adicione a function `created()`:
+- Será criado o arquivo `Mail\SendEmailDevs`
+
+- Altere o conteúdo da class para o seguinte:
 
 ```php
-Log::alert('created ' . $devs->toJson());
-```
+use Queueable, SerializesModels;
+private $devs = [];
 
-- Adicione a `use` nesse arquivo:
-
-```php
-use Illuminate\Support\Facades\Log;
-```
-
-- Para utilizar o observer altere no arquivo `app/Providers/AppServiceProvider`:
-
-```php
-use App\Http\Models\Devs;
-use App\Observers\DevObserver;
-```
-
-- Na function `boot()` adicione:
-
-```php
-Devs::observe(DevObserver::class);
-```
-
-- Tudo pronto agora quando realizar um create de um novo dev, irá gerar um log no arquivo `laravel.log`
-
----
-
-<h2>Com tabela Pivot é um pouco diferente</h2>
-
-- Crie o Model: `app/Http/Models/Pivot/DevTechs`:
-
-```bash
-php artisan make:model Http\\Models\\Pivot\\DevTechs  
-```
-
-- Será criado o arquivo `app/Http/Models/Pivot/DevTechs`, altere o conteúdo para:
-
-```php
-namespace App\Http\Models\Pivot;
-
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Pivot;
-
-class DevTechs extends Pivot
+/**
+ * Create a new message instance.
+ *
+ * @return void
+ */
+public function __construct($devs)
 {
-    public function create()
-    {
-        event('eloquent.creating: ' . __CLASS__, $this);
+    $this->devs = $devs;
+}
 
-        parent::create();
-
-        event('eloquent.created: ' . __CLASS__, $this);
-    }
-
-    public function update(array $attributes = [], array $options = [])
-    {
-        event('eloquent.updating: ' . __CLASS__, $this);
-
-        parent::update();
-
-        event('eloquent.updated: ' . __CLASS__, $this);
-    }
-
-    public function delete()
-    {
-        event('eloquent.deleting: ' . __CLASS__, $this);
-
-        parent::delete();
-
-        event('eloquent.deleted: ' . __CLASS__, $this);
-    }
+/**
+ * Build the message.
+ *
+ * @return $this
+ */
+public function build()
+{
+    return $this->view('emails.parts.content', ['dev' => $this->devs]);
 }
 ```
 
-- No model `Devs`, realize essa substitua o conteúdo da função `techs()`:
+- crie a view `resources/views/emails/devs.blade.php`
 
-```php
-return $this->belongsToMany('App\Http\Models\Techs', 'dev_techs', 'id_dev', 'id_tech')
-->withPivot('status', 'id')
-->using('App\Http\Models\Pivot\DevTechs');
+- E adicione o seguinte conteudo:
+
+```html
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>How to send mail using queue in Laravel 5.7? - ItSolutionStuff.com</title>
+</head>
+
+<body>
+    @yield('content')
+</body>
+
+</html>
 ```
 
-- A diferença aqui é a adição da function `->using('App\Http\Models\Pivot\DevTechs')`
+- crie a view `resources/views/emails/parts/content.blade.php` adicione o seguinte:
 
-- Criar o observer para o pivot:
+```html
+@extends('emails.devs')
+@section('content')
+<center>
+    <h2 style="padding: 23px;background: #b3deb8a1;border-bottom: 6px green solid;">
+        Novo Dev
+    </h2>
+</center>
+
+<p>Nome: {{$dev['nome']}}</p>
+<p>Git: {{$dev['github_username']}}</p>
+
+@include('emails.parts.footer')
+@endsection
+```
+
+- crie a view `resources/views/emails/parts/footer.blade.php` adicione o seguinte:
+
+```html
+<i>E-mail gerado via sistema</i>
+```
+- Como já configuramos os dados de envio de e-mail conforme [Laravel parte 7](https://github.com/mrcarromesa/laravel-parte7) no tópico `Prepara envio de e-mail`, vc já deve ter o arquivo `.env` configurado para o envio de e-mails
+
+---
+
+<h2>Criação da tabela de filas</h2>
+
+- No arquiv `.env` altere o valor da variavel `QUEUE_CONNECTION` para que as filas sejam criadas utilizando a base de dados:
+
+```
+QUEUE_CONNECTION=database
+```
+
+- Gerando tabelas, execute o comando:
 
 ```bash
-php artisan make:observer DevTechsObserver --model=Http\\Models\\Pivot\\DevTechs
+php artisan queue:table
 ```
 
-- Será criado o arquivo `app/Observers/DevTechsObserver`, altere a function `created()`:
+- Criando as tabelas, execute o comando:
+
+```bash
+php artisan migrate
+```
+
+- Criando o JOB:
+
+- Execute o comando:
+
+```bash
+php artisan make:job SendEmailJob
+```
+
+- Será criado o arquivo `app/Jobs/SendEmailJob.php`, altere ele para:
 
 ```php
-Log::alert('pivot ok => ' . $devTechs->toJson());
+
+namespace App\Jobs;
+
+use App\Mail\SendEmailDevs;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Mail;
+
+class SendEmailJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    private $devs = [];
+    private $details = '';
+    /**
+     * Create a new job instance.
+     *
+     * @return void
+     */
+    public function __construct($devs, $details)
+    {
+        $this->devs = $devs;
+        $this->details = $details;
+    }
+
+    /**
+     * Execute the job.
+     *
+     * @return void
+     */
+    public function handle()
+    {
+
+        $email = new SendEmailDevs($this->devs);
+        Mail::to($this->details['email'])->send($email);
+    }
+}
+
 ```
 
-- Altere a function `updated()` para:
+<h2>Ajuste no observe</h2>
+
+- Em `App\Observers\DevObserver` adicione a `use` `use App\Jobs\SendEmailJob;`
+
+
+- Em `App\Observers\DevObserver` ajuste a function: `created(Devs $devs)` adicionando o seguinte:
 
 ```php
-Log::alert('pivot ok UPd => ' . $devTechs->toJson());
+$details['email'] = 'your_email@gmail.com';
+//dd($devs->toArray());
+SendEmailJob::dispatch($devs->toArray(), $details);
 ```
 
-- Não esqueça de adicionar a `use`:
+- Antes de testar vamos garantir que as informações do arquivo `.env` não estejam em cache, execute os comandos:
 
-```php
-use App\Http\Models\Pivot\DevTechs;
-use Illuminate\Support\Facades\Log;
+```bash
+php artisan config:cache
 ```
 
-- Quase pronto, agora no arquivo `Providers/AppServiceProvider` adicione a `use`:
+- E também:
 
-```php
-use App\Http\Models\Pivot\DevTechs;
-use App\Observers\DevTechsObserver;
+```bash
+php artisan config:clear
 ```
 
-- Na function `boot()` adicione o seguinte:
-
-```php
-DevTechs::observe(DevTechsObserver::class);
-```
-
-- Pronto agora qualquer criação/alteração feita na tabela dev_techs, através do devs será gerado log.
+- Agora teste cadastrando um novo dev!

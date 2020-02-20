@@ -36,3 +36,7 @@ Route::resource('dev-tech', 'DevTechsController')->parameters([
 Route::group(['middleware' => 'auth:api'], function () {
     //Route::post('details', 'API\UserController@details');
 });
+
+Route::get('/teste', function () {
+    return view('emails.parts.content', ['dev' => ['nome' => 'Rodolfo', 'github_username' => 'mrcarromesa']]);
+});
