@@ -185,4 +185,14 @@ php artisan config:cache
 php artisan config:clear
 ```
 
+- Por fim executar o comando para iniciar o serviço:
+
+```bash
+php artisan queue:work
+```
+
+- Para executar o serviço em produção siga os passos em:
+
+[Supervisor Configuration](https://laravel.com/docs/6.x/queues#supervisor-configuration)
+
 - Agora teste cadastrando um novo dev!
